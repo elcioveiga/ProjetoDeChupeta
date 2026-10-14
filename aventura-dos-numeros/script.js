@@ -95,6 +95,50 @@ const LEVELS = [
     story: "Nino quer dividir os blocos de gelo igualmente entre os amigos. Divida com cuidado!",
   },
 ];
+/* Guia das quatro operações, mostrado na tela "Como Jogar" (level = índice em LEVELS) */
+const OPS_GUIDE = [
+  {
+    level: 0,
+    title: "Adição",
+    sym: "+",
+    idea: "Juntar",
+    text: "Na adição, você junta quantidades. O total fica maior.",
+    visual: "🌟🌟🌟 + 🌟🌟 = 🌟🌟🌟🌟🌟",
+    eq: "3 + 2 = 5",
+    tip: "Comece pelo número maior e conte para a frente. Com números grandes, some as dezenas e depois as unidades: 23 + 14 → 20 + 10 = 30 e 3 + 4 = 7, então 37.",
+  },
+  {
+    level: 1,
+    title: "Subtração",
+    sym: "−",
+    idea: "Tirar",
+    text: "Na subtração, você tira uma parte do que tinha. O resultado é o que sobra.",
+    visual: "🌵🌵🌵🌵🌵 − 🌵🌵 = 🌵🌵🌵",
+    eq: "5 − 2 = 3",
+    tip: "Pense ao contrário: 2 mais quanto dá 5? A subtração desfaz a adição, então você pode conferir somando.",
+  },
+  {
+    level: 2,
+    title: "Multiplicação",
+    sym: "×",
+    idea: "Grupos iguais",
+    text: "Na multiplicação, você tem vários grupos com a mesma quantidade. É uma adição que se repete.",
+    visual: "3 grupos de 4:<br>💎💎💎💎 · 💎💎💎💎 · 💎💎💎💎",
+    eq: "3 × 4 = 4 + 4 + 4 = 12",
+    tip: "A ordem não muda o resultado: 3 × 4 é igual a 4 × 3. Aprenda a tabuada aos poucos. O dobro (× 2) é só somar o número com ele mesmo.",
+  },
+  {
+    level: 3,
+    title: "Divisão",
+    sym: "÷",
+    idea: "Repartir igualmente",
+    text: "Na divisão, você reparte tudo em grupos iguais, sem sobrar nada.",
+    visual: "12 blocos em 3 grupos:<br>❄️❄️❄️❄️ · ❄️❄️❄️❄️ · ❄️❄️❄️❄️",
+    eq: "12 ÷ 3 = 4",
+    tip: "Pense ao contrário: 3 vezes quanto dá 12? A divisão desfaz a multiplicação, então você pode conferir multiplicando.",
+  },
+];
+
 const ACC = [
   { id: "coroa", n: "Coroa Estelar", e: "👑" },
   { id: "oculos", n: "Óculos do Deserto", e: "🕶️" },
@@ -523,9 +567,37 @@ const UI = {
     );
   },
   how() {
+    // Um cartão para cada operação, com a explicação do guia (OPS_GUIDE)
+    const cards = OPS_GUIDE.map((o) => {
+      const L = LEVELS[o.level];
+      const practice =
+        o.level < S.unlocked
+          ? `<button class="btn small" data-act="intro" data-arg="${o.level}">Praticar</button>`
+          : "";
+      return `<article class="opc" style="--c:${L.c}">
+        <div class="al">${Art.alien(L.ac, L.al)}</div>
+        <h3>${L.em} ${o.title} <span class="sym">${o.sym}</span></h3>
+        <p class="idea">${o.idea}</p>
+        <p>${o.text}</p>
+        <div class="ex"><div>${o.visual}</div><b>${o.eq}</b></div>
+        <p class="tip">💡 ${o.tip}</p>
+        ${practice}
+      </article>`;
+    }).join("");
     go(
       "how",
-      `<h2 class="logo" style="font-size:2.2rem">Como Jogar</h2><div class="panel" style="text-align:left;font-size:1.15rem;line-height:1.6"><p>1. Escolha um planeta no mapa.</p><p>2. Leia a conta e toque na resposta certa (ou use as teclas <b>1</b> a <b>4</b>).</p><p>3. Precisa de ajuda? Toque em <b>💡 Dica</b> (ou tecle <b>H</b>). A dica tira duas respostas erradas!</p><p>4. Acertos seguidos dão pontos extras 🔥. Cada fase tem 10 desafios.</p><p>5. Ganhe ⭐ estrelas, 🏅 medalhas, baús 🧰 e acessórios para a Luma. Tecle <b>P</b> para pausar.</p></div><button class="btn" data-act="menu">⬅ Voltar</button>`,
+      `<h2 class="logo" style="font-size:2.2rem">Como Jogar</h2>
+      <div class="panel" style="text-align:left;font-size:1.15rem;line-height:1.6">
+        <p>1. Escolha um planeta no mapa.</p>
+        <p>2. Leia a conta e toque na resposta certa (ou use as teclas <b>1</b> a <b>4</b>).</p>
+        <p>3. Precisa de ajuda? Toque em <b>💡 Dica</b> (ou tecle <b>H</b>). A dica tira duas respostas erradas!</p>
+        <p>4. Acertos seguidos dão pontos extras 🔥. Cada fase tem 10 desafios.</p>
+        <p>5. Ganhe ⭐ estrelas, 🏅 medalhas, baús 🧰 e acessórios para a Luma. Tecle <b>P</b> para pausar.</p>
+      </div>
+      <h2 class="logo" style="font-size:1.8rem">As quatro operações</h2>
+      <p class="lead">Cada planeta tem um amigo que ensina uma operação. Veja como funciona:</p>
+      <div class="op-grid">${cards}</div>
+      <button class="btn" data-act="menu">⬅ Voltar</button>`,
     );
   },
   levels() {
