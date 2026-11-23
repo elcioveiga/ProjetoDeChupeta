@@ -95,6 +95,17 @@ const LEVELS = [
     story: "Nino quer dividir os blocos de gelo igualmente entre os amigos. Divida com cuidado!",
   },
 ];
+/* Poses do Pipo, o robô ajudante */
+const PIPO_POSES = {
+  neutra: { src: "assets/pipo.webp", alt: "Pipo, o robô, flutuando" },
+  pensando: { src: "assets/pipo-pensando.webp", alt: "Pipo pensando, com a mão no queixo" },
+  certo: { src: "assets/pipo-certo.webp", alt: "Pipo piscando, com um sinal de certo na tela" },
+  dica: { src: "assets/pipo-dica.webp", alt: "Pipo com uma lâmpada acesa na tela" },
+};
+
+/* Figura que o Pipo projeta para cada operação (adição, subtração, multiplicação, divisão) */
+const OBJ = ["🌟", "🌵", "💎", "❄️"];
+
 /* Guia das quatro operações, mostrado na tela "Como Jogar" (level = índice em LEVELS) */
 const OPS_GUIDE = [
   {
@@ -238,9 +249,6 @@ const Snd = {
    ============================================================ */
 
 const Art = {
-  pipo() {
-    return `<svg viewBox="0 0 100 110" role="img" aria-label="Pipo, o robô"><line x1="50" y1="8" x2="50" y2="22" stroke="#1abc9c" stroke-width="3"/><circle cx="50" cy="8" r="5" fill="#ff6b81"/><rect x="18" y="22" width="64" height="46" rx="20" fill="#fff" stroke="#1abc9c" stroke-width="4"/><rect x="27" y="31" width="46" height="28" rx="14" fill="#0b2a3a"/><circle cx="40" cy="45" r="6" fill="#3ee6d0"/><circle cx="60" cy="45" r="6" fill="#3ee6d0"/><path d="M44 54 Q50 58 56 54" stroke="#3ee6d0" stroke-width="2" fill="none"/><rect x="30" y="70" width="40" height="28" rx="12" fill="#1abc9c"/><circle cx="50" cy="84" r="5" fill="#fff"/><rect x="10" y="74" width="14" height="10" rx="5" fill="#fff" stroke="#1abc9c" stroke-width="2"/><rect x="76" y="74" width="14" height="10" rx="5" fill="#fff" stroke="#1abc9c" stroke-width="2"/></svg>`;
-  },
   alien(c, name) {
     return `<svg viewBox="0 0 100 110" role="img" aria-label="${name}, alienígena"><line x1="38" y1="14" x2="34" y2="28" stroke="${c}" stroke-width="3"/><line x1="62" y1="14" x2="66" y2="28" stroke="${c}" stroke-width="3"/><circle cx="38" cy="12" r="5" fill="#ffe066"/><circle cx="62" cy="12" r="5" fill="#ffe066"/><path d="M14 70 Q14 24 50 24 Q86 24 86 70 Q86 100 50 100 Q14 100 14 70Z" fill="${c}" stroke="#0003" stroke-width="2"/><circle cx="38" cy="58" r="11" fill="#fff"/><circle cx="62" cy="58" r="11" fill="#fff"/><circle cx="40" cy="60" r="6" fill="#222"/><circle cx="64" cy="60" r="6" fill="#222"/><circle cx="42" cy="57" r="2" fill="#fff"/><circle cx="66" cy="57" r="2" fill="#fff"/><path d="M38 80 Q50 92 62 80" stroke="#222" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
   },
@@ -332,7 +340,7 @@ const Quiz = {
     let n = 3;
     while (pool.length < 3) pool.push(ans + n++);
     const opts = shuf([ans, ...pool.slice(0, 3)]);
-    return { text, ans, opts, hint, expl, key: text };
+    return { text, ans, opts, hint, expl, key: text, a, b, op: l };
   },
   set(l) {
     const used = new Set(),
@@ -425,6 +433,7 @@ const Game = {
       "💡 " + q.hint + " (Eliminei duas respostas! Acertar com dica vale 5 pontos.)";
     document.getElementById("hb").disabled = true;
     setMood("encorajadora"); // incentiva ao pedir dica
+    UI.helpWithHint(q); // Pipo mostra a lâmpada e projeta as figuras
   },
   next() {
     G.i++;
@@ -555,6 +564,66 @@ function starRain() {
   }
 }
 
+/* ----- Pipo: poses e projeção de figuras ----- */
+
+function pipoImg(pose) {
+  const p = PIPO_POSES[pose] || PIPO_POSES.neutra;
+  return `<img class="pipo-img" src="${p.src}" alt="${p.alt}" />`;
+}
+
+// Troca a pose do Pipo (#pp). Com backAfter, volta à pose neutra depois desse tempo (ms).
+function setPipo(pose, backAfter = 0) {
+  const box = $("#pp");
+  if (!box) return;
+  clearTimeout(setPipo.timer);
+  box.innerHTML = pipoImg(pose);
+  box.classList.toggle("tilt", pose === "pensando"); // inclina a cabeça ao pensar
+  if (backAfter) {
+    setPipo.timer = setTimeout(() => {
+      if ($("#pp") === box) {
+        box.innerHTML = pipoImg("neutra");
+        box.classList.remove("tilt");
+      }
+    }, backAfter);
+  }
+}
+
+// Figuras para um número: até 12 aparecem uma a uma; acima disso, em dezenas (🟦) e unidades (🔹).
+function objs(n, e) {
+  return n <= 12 ? e.repeat(n) : "🟦".repeat(Math.floor(n / 10)) + "🔹".repeat(n % 10);
+}
+
+// Monta a projeção do Pipo para a conta de q. Com reveal, mostra também o resultado.
+function holoHtml(q, reveal) {
+  const e = OBJ[q.op];
+  const { a, b, ans } = q;
+  const grupos = (n, conteudo, cls = "grp") =>
+    Array(n).fill(`<span class="${cls}">${conteudo}</span>`).join(" ");
+  const resultado = reveal ? ` <i>=</i> ${objs(ans, e)}` : "";
+  let body = "";
+  if (q.op === 0) {
+    body = `${objs(a, e)} <i>+</i> ${objs(b, e)}${resultado}`;
+  } else if (q.op === 1) {
+    // até 12: mostra tudo e apaga o que foi tirado; acima disso, mostra em dezenas e unidades
+    body =
+      a <= 12
+        ? `${e.repeat(ans)}<s>${e.repeat(b)}</s>`
+        : `${objs(a, e)} <i>−</i> ${objs(b, e)}${resultado}`;
+  } else if (q.op === 2) {
+    // a grupos de b (se forem muitas figuras, cada grupo mostra só o número)
+    body = grupos(a, a * b <= 40 ? e.repeat(b) : `<b>${b}</b>`) + resultado;
+  } else if (reveal) {
+    // b grupos iguais com ans em cada um
+    body = grupos(b, a <= 40 ? e.repeat(ans) : `<b>${ans}</b>`);
+  } else {
+    // tudo junto, para repartir em b grupos
+    body = `${objs(a, e)} <i>➜</i> ${grupos(b, "?", "grp empty")}`;
+  }
+  const legenda = /🟦|🔹/.test(body) ? "<small>🟦 = 10 · 🔹 = 1</small>" : "";
+  const conta = reveal ? q.text.replace("?", ans) : q.text;
+  return `<div class="holo-in"><span class="tag">📽 Pipo mostra</span><p class="cap">${conta}</p><div class="fig">${body}</div>${legenda}</div>`;
+}
+
 const UI = {
   menu() {
     go(
@@ -615,7 +684,7 @@ const UI = {
     const L = LEVELS[l];
     go(
       "intro",
-      `<div class="chars"><div class="lm-box lm-big">${lumaImg("feliz")}</div><div class="bob2">${Art.alien(L.ac, L.al)}</div></div><div class="panel"><h2>${L.em} ${L.n}</h2><p style="font-size:1.25rem"><b>Missão:</b> ${L.story}</p><p>Responda 10 desafios. Acertando 5 você ganha ⭐, 7 ganha ⭐⭐ e 9 ganha ⭐⭐⭐!</p></div><div class="row"><button class="btn green big" data-act="start" data-arg="${l}">Começar!</button><button class="btn alt" data-act="levels">⬅ Mapa</button></div>`,
+      `<div class="chars"><div class="lm-box lm-big">${lumaImg("feliz")}</div><div class="pp-box">${pipoImg("neutra")}</div><div class="bob2">${Art.alien(L.ac, L.al)}</div></div><div class="panel"><h2>${L.em} ${L.n}</h2><p style="font-size:1.25rem"><b>Missão:</b> ${L.story}</p><p>Responda 10 desafios. Acertando 5 você ganha ⭐, 7 ganha ⭐⭐ e 9 ganha ⭐⭐⭐!</p></div><div class="row"><button class="btn green big" data-act="start" data-arg="${l}">Começar!</button><button class="btn alt" data-act="levels">⬅ Mapa</button></div>`,
     );
   },
   question() {
@@ -624,11 +693,23 @@ const UI = {
     go(
       "challenge",
       `<header class="top"><button class="btn small" data-act="pause" aria-label="Pausar (tecla P)">⏸ Pausa</button><div class="pill" aria-label="Pontos">⭐ <b>${G.pts}</b></div><div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${G.i}" aria-label="Progresso da fase"><i style="width:${G.i * 10}%"></i></div><div class="pill" aria-label="Acertos seguidos">🔥 ${G.streak}</div></header>
-  <section class="stage"><div class="chars"><div id="lm" class="lm-box">${lumaImg("neutra")}</div><div style="width:clamp(70px,14vw,120px)">${Art.alien(L.ac, L.al)}</div></div>
-  <div class="panel"><p class="kicker">Desafio ${G.i + 1} de 10 · ${L.n}</p><h2 class="qtext" aria-label="${q.text.replace("?", "quanto?")}">${q.text}</h2><div class="opts">${q.opts.map((o, k) => `<button class="btn opt" data-act="ans" data-arg="${k}"><kbd>${k + 1}</kbd>${o}</button>`).join("")}</div><div class="row" style="margin-top:12px"><button id="hb" class="btn small alt" data-act="hint">💡 Dica (H)</button></div><div id="fb" class="fb" role="status" aria-live="polite"></div><button id="nx" class="btn green big hide" data-act="next">${G.i == 9 ? "Ver resultado 🏁" : "Continuar ➜"}</button></div></section>`,
+  <section class="stage"><div class="chars"><div id="lm" class="lm-box">${lumaImg("neutra")}</div><div id="pp" class="pp-box">${pipoImg("neutra")}</div><div style="width:clamp(60px,12vw,100px)">${Art.alien(L.ac, L.al)}</div></div>
+  <div class="panel"><p class="kicker">Desafio ${G.i + 1} de 10 · ${L.n}</p><h2 class="qtext" aria-label="${q.text.replace("?", "quanto?")}">${q.text}</h2><div class="opts">${q.opts.map((o, k) => `<button class="btn opt" data-act="ans" data-arg="${k}"><kbd>${k + 1}</kbd>${o}</button>`).join("")}</div><div class="row" style="margin-top:12px"><button id="hb" class="btn small alt" data-act="hint">💡 Dica (H)</button></div><div id="holo" class="holo"></div><div id="fb" class="fb" role="status" aria-live="polite"></div><button id="nx" class="btn green big hide" data-act="next">${G.i == 9 ? "Ver resultado 🏁" : "Continuar ➜"}</button></div></section>`,
       ".qtext",
     );
     if (G.i === 0) setMood("feliz", 1000, true); // ao iniciar a fase: pequeno salto
+    // Se o aluno demorar, o Pipo inclina a cabeça e fica pensando junto
+    clearTimeout(UI.idle);
+    UI.idle = setTimeout(() => {
+      if (G && !G.done && !G.hint && !paused) setPipo("pensando");
+    }, 9000);
+  },
+  // Pipo acende a lâmpada e projeta figuras que ilustram a conta.
+  helpWithHint(q) {
+    clearTimeout(UI.idle);
+    setPipo("dica");
+    const h = $("#holo");
+    if (h) h.innerHTML = holoHtml(q, false);
   },
   feedback(k, ok, gain) {
     const q = G.qs[G.i];
@@ -646,6 +727,13 @@ const UI = {
     if (ok)
       setMood("comemorando", 900, true); // comemora e volta ao normal
     else setMood("pensativa", 1500); // fica pensativa e logo volta ao normal
+    clearTimeout(UI.idle);
+    if (ok) {
+      setPipo("certo", 1300); // Pipo pisca confirmando o acerto
+    } else {
+      setPipo("dica"); // Pipo mostra a conta com figuras e o resultado
+      $("#holo").innerHTML = holoHtml(q, true);
+    }
     if (ok) confetti();
     $(".pill b").textContent = G.pts;
     $(".pill:last-child").textContent = "🔥 " + G.streak;
@@ -713,7 +801,7 @@ const UI = {
     starRain();
     go(
       "final",
-      `<h2 class="logo" style="font-size:2.4rem">Missão cumprida!</h2><div class="chars"><div class="lm-box lm-big">${lumaImg("comemorando")}</div><div class="bob2" style="width:100px">${Art.pipo()}</div></div><div class="panel"><div class="chest" aria-hidden="true">🏆</div><p style="font-size:1.3rem">Luma e Pipo visitaram os 4 planetas!</p><p style="font-size:1.2rem">⭐ ${total()}/12 estrelas · ${S.points} pontos · ${S.correct} acertos · 🔥 melhor sequência ${S.bestStreak}</p><p>${S.stars.every((x) => x == 3) ? "Você ganhou o Troféu Galáctico com 3 estrelas em tudo! 🏅" : "Repita as fases para conquistar 3 estrelas em todos os planetas e ganhar o Troféu Galáctico!"}</p></div><div class="row"><button class="btn" data-act="levels">🗺 Mapa</button><button class="btn alt" data-act="menu">Menu</button></div>`,
+      `<h2 class="logo" style="font-size:2.4rem">Missão cumprida!</h2><div class="chars"><div class="lm-box lm-big">${lumaImg("comemorando")}</div><div class="pp-box">${pipoImg("certo")}</div></div><div class="panel"><div class="chest" aria-hidden="true">🏆</div><p style="font-size:1.3rem">Luma e Pipo visitaram os 4 planetas!</p><p style="font-size:1.2rem">⭐ ${total()}/12 estrelas · ${S.points} pontos · ${S.correct} acertos · 🔥 melhor sequência ${S.bestStreak}</p><p>${S.stars.every((x) => x == 3) ? "Você ganhou o Troféu Galáctico com 3 estrelas em tudo! 🏅" : "Repita as fases para conquistar 3 estrelas em todos os planetas e ganhar o Troféu Galáctico!"}</p></div><div class="row"><button class="btn" data-act="levels">🗺 Mapa</button><button class="btn alt" data-act="menu">Menu</button></div>`,
     );
   },
 };
@@ -814,7 +902,7 @@ document.addEventListener("keydown", (e) => {
    ============================================================ */
 
 // Pré-carrega as poses para a troca de expressão ser instantânea
-Object.values(LUMA_POSES).forEach((p) => {
+[...Object.values(LUMA_POSES), ...Object.values(PIPO_POSES)].forEach((p) => {
   new Image().src = p.src;
 });
 

@@ -261,8 +261,8 @@ h2 {
 }
 .stage {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px 40px;
   align-items: center;
   width: 100%;
 }
@@ -891,4 +891,117 @@ body:not([data-s="menu"]) .planet {
 .opc .btn {
   align-self: flex-start;
   margin-top: 4px;
+}
+
+/* ===== Pipo (poses, flutuação e projeção de figuras) ===== */
+.pp-box {
+  height: clamp(90px, 16vh, 150px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: clamp(24px, 7vh, 70px);
+  transform-origin: 50% 80%;
+}
+.pp-box .pipo-img {
+  height: 100%;
+  width: auto;
+  display: block;
+  animation: bob 4.5s ease-in-out infinite;
+}
+.pp-box.tilt {
+  animation: tilt 1.2s ease-in-out forwards;
+}
+@keyframes tilt {
+  0% {
+    transform: rotate(0);
+  }
+  40% {
+    transform: rotate(-10deg);
+  }
+  100% {
+    transform: rotate(-5deg);
+  }
+}
+.holo:empty {
+  display: none;
+}
+.holo {
+  margin: 8px 0;
+}
+.holo-in {
+  background: linear-gradient(#0b2a3a, #123c52);
+  color: #aaf5ee;
+  border: 3px solid #3ee6d0;
+  border-radius: 18px;
+  padding: 10px 12px;
+  text-align: center;
+  box-shadow:
+    inset 0 0 18px #3ee6d066,
+    0 0 14px #3ee6d055;
+  animation: proj 0.5s ease-out;
+  transform-origin: 0 50%;
+}
+@keyframes proj {
+  from {
+    opacity: 0;
+    transform: scaleX(0.2);
+    filter: brightness(2);
+  }
+}
+.holo-in .tag {
+  font-size: 0.85rem;
+  font-weight: 800;
+  opacity: 0.85;
+}
+.holo-in .cap {
+  margin: 2px 0;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: #fff;
+}
+.holo-in .fig {
+  font-size: 1.5rem;
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  justify-content: center;
+  align-items: center;
+}
+.holo-in i {
+  font-style: normal;
+  font-weight: 900;
+  color: #ffe066;
+  font-size: 1.6rem;
+}
+.holo-in s {
+  text-decoration: line-through;
+  text-decoration-color: #ff6b81;
+  text-decoration-thickness: 3px;
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+.holo-in .grp {
+  border: 2px dashed #3ee6d0;
+  border-radius: 12px;
+  padding: 2px 8px;
+  min-width: 44px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+.holo-in .grp b {
+  color: #fff;
+}
+.holo-in small {
+  display: block;
+  opacity: 0.8;
+}
+@media (max-width: 700px) {
+  .pp-box {
+    height: clamp(70px, 12vh, 110px);
+    margin-bottom: 8px;
+  }
 }
